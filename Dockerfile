@@ -36,6 +36,7 @@ RUN apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get --assume-yes install \
     build-essential \
     curl \
+    crudini \
     libclang1 \
     libgl1-mesa-dri \
     libgl1-mesa-glx \
@@ -86,11 +87,17 @@ ENV ANDROID_HOME /opt/android-sdk-linux
 ENV ANDROID_SDK /opt/android-sdk-linux
 ENV ANDROID_NDK_ROOT /opt/android-sdk-linux/ndk/${NDK_VERSION}
 
-COPY --link --from=androidsdk/android-31:latest --chown=developer:developer /opt/android-sdk-linux /opt/android-sdk-linux
+COPY --link --from=androidsdk/android-31:latest --chown=$USERNAME:$USERNAME /opt/android-sdk-linux /opt/android-sdk-linux
 
 ENV PATH=${ANDROID_HOME}/bin:${ANDROID_HOME}/tools/bin:$PATH
 
 # Install NDK
 RUN sdkmanager --install "ndk;${NDK_VERSION}"
+
+# Automatically update NDK and SDK configurations in QtCreator
+ENV QT_CREATOR_CONFIG_FOLDER /home/${USERNAME}/.config/QtProject
+COPY --chown=$USERNAME:$USERNAME config/QtCreator.ini $QT_CREATOR_CONFIG_FOLDER/
+RUN crudini --set $QT_CREATOR_CONFIG_FOLDER/QtCreator.ini AndroidConfigurations NDKLocation ${ANDROID_NDK_ROOT} \
+    && crudini --set $QT_CREATOR_CONFIG_FOLDER/QtCreator.ini AndroidConfigurations SDKLocation ${ANDROID_SDK}
 
 CMD ["/opt/Qt/Tools/QtCreator/bin/qtcreator"]
