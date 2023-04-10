@@ -1,4 +1,5 @@
-FROM androidsdk/android-31:latest AS base
+# syntax = docker/dockerfile:1.4
+FROM ubuntu:22.04 AS base
 
 # The image version
 ARG VERSION=0.0.1
@@ -40,6 +41,8 @@ RUN apt-get update && \
     libgl1-mesa-glx \
     libxkbcommon0 \
     libxkbcommon-x11-0 \
+    openjdk-8-jdk \
+    openssh-client \
     xdg-utils
 
 # Download and run installer
@@ -48,7 +51,7 @@ RUN export QT_COMPONENT_VERSION=$(echo $QT_FULL_VERSION | sed 's/\.//g') && \
     QT_MINOR_VERSION=$(echo $QT_FULL_VERSION | cut -d. -f1-2) && \
     QT_INSTALLER_NAME=qt-opensource-linux-x64-$QT_FULL_VERSION.run && \
     QT_DOWNLOAD_URL=$QT_URL/$QT_FOLDER_TYPE/qt/$QT_MINOR_VERSION/$QT_FULL_VERSION/$QT_INSTALLER_NAME && \
-    echo "Downloading Qt installer $QT_FULL_VERSION" && \
+    echo "Downloading Qt installer $QT_FULL_VERSION $QT_DOWNLOAD_URL" && \
     curl -L $QT_DOWNLOAD_URL -o /tmp/$QT_INSTALLER_NAME && \
     chmod +x /tmp/$QT_INSTALLER_NAME && \
     echo "Starting install" && \
@@ -61,11 +64,33 @@ RUN export QT_COMPONENT_VERSION=$(echo $QT_FULL_VERSION | sed 's/\.//g') && \
 ENV QT_CI_LOGIN=
 ENV QT_CI_PASSWORD=
 
+# Run the image as non-root user
+ARG USERNAME=developer
+ARG USER_UID=1001
+ARG USER_GID=$USER_UID
+
+# Create the user
+RUN groupadd --gid $USER_GID $USERNAME \
+    && useradd --uid $USER_UID --gid $USER_GID -m $USERNAME \
+    #
+    # Add sudo support
+    && apt-get update \
+    && apt-get install -y sudo \
+    && echo $USERNAME ALL=\(root\) NOPASSWD:ALL > /etc/sudoers.d/$USERNAME \
+    && chmod 0440 /etc/sudoers.d/$USERNAME
+
+USER $USERNAME
+
+# Prepare SDK
+ENV ANDROID_HOME /opt/android-sdk-linux
+ENV ANDROID_SDK /opt/android-sdk-linux
+ENV ANDROID_NDK_ROOT /opt/android-sdk-linux/ndk/${NDK_VERSION}
+
+COPY --link --from=androidsdk/android-31:latest --chown=developer:developer /opt/android-sdk-linux /opt/android-sdk-linux
+
+ENV PATH=${ANDROID_HOME}/bin:${ANDROID_HOME}/tools/bin:$PATH
+
 # Install NDK
 RUN sdkmanager --install "ndk;${NDK_VERSION}"
-
-ENV ANDROID_HOME=/opt/android-sdk-linux
-ENV ANDROID_SDK_ROOT=/opt/android-sdk-linux
-ENV ANDROID_NDK_ROOT=/opt/android-sdk-linux/ndk/20.1.5948944
 
 CMD ["/opt/Qt/Tools/QtCreator/bin/qtcreator"]
