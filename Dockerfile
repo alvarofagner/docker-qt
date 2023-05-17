@@ -33,6 +33,8 @@ COPY qt-creator-installer-noninteractive.qs /tmp/
 # Dependencies layer
 RUN apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get --assume-yes dist-upgrade && \
+    # Extra apt-get update after dist-upgrade needed otherwise could fail to find packages.
+    apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get --assume-yes install \
     build-essential \
     curl \
@@ -67,7 +69,7 @@ ENV QT_CI_PASSWORD=
 
 # Run the image as non-root user
 ARG USERNAME=developer
-ARG USER_UID=1001
+ARG USER_UID=1002
 ARG USER_GID=$USER_UID
 
 # Create the user
@@ -87,7 +89,7 @@ ENV ANDROID_HOME /opt/android-sdk-linux
 ENV ANDROID_SDK /opt/android-sdk-linux
 ENV ANDROID_NDK_ROOT /opt/android-sdk-linux/ndk/${NDK_VERSION}
 
-COPY --link --from=androidsdk/android-31:latest --chown=$USERNAME:$USERNAME /opt/android-sdk-linux /opt/android-sdk-linux
+COPY --link --from=androidsdk/android-31:latest --chown=${USER_UID}:${USER_GID} /opt/android-sdk-linux /opt/android-sdk-linux
 
 ENV PATH=${ANDROID_HOME}/bin:${ANDROID_HOME}/tools/bin:$PATH
 
